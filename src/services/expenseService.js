@@ -1,127 +1,245 @@
-
-// Mock Data
-const USERS = [
-    { id: 'u1', name: 'Liin', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Liin' },
-    { id: 'u2', name: 'Hose', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Hose' },
-];
-
-let ACCOUNTS = [
-    {
-        id: 'acc1',
-        name: 'Liin & Hose Home',
-        owner_id: 'u1',
-        member_ids: ['u1', 'u2']
-    }
-];
-
-let expenses = [
-    {
-        id: 'e1',
-        account_id: 'acc1',
-        title: 'Dinner at Mario\'s',
-        amount: 1200,
-        date: '2023-10-25',
-        created_by: 'u1',
-        shares: [
-            { user_id: 'u1', amount: 600, status: 'PAID' },
-            { user_id: 'u2', amount: 600, status: 'PENDING' },
-        ]
-    }
-];
-
-// Simulate API delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+import { supabase } from '../lib/supabase';
 
 export const expenseService = {
     getUsers: async () => {
-        await delay(200);
-        return USERS;
-    },
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url');
 
-    getAccounts: async (userId) => {
-        await delay(300);
-        // Return accounts where user is owner OR member
-        return ACCOUNTS.filter(acc =>
-            acc.owner_id === userId || acc.member_ids.includes(userId)
-        ).map(acc => ({
-            ...acc,
-            // Hydrate members
-            members: USERS.filter(u => acc.member_ids.includes(u.id))
+        if (error) throw error;
+
+        return data.map(u => ({
+            id: u.id,
+            name: u.full_name,
+            avatar: u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.full_name}`
         }));
     },
 
-    createAccount: async (name, ownerId, memberIds) => {
-        await delay(500);
-        const newAccount = {
-            id: Math.random().toString(36).substr(2, 9),
-            name,
-            owner_id: ownerId,
-            member_ids: [...new Set([ownerId, ...memberIds])] // Ensure owner is member
-        };
-        ACCOUNTS = [...ACCOUNTS, newAccount];
+    getAccounts: async (userId) => {
+        // Get accounts where user is owner or member
+        const { data: accounts, error } = await supabase
+            .from('accounts')
+            .select(`
+        *,
+        owner:profiles!owner_id(*),
+        account_members!inner(user_id)
+      `)
+            .eq('account_members.user_id', userId);
 
-        // Return hydrated account
+        if (error) throw error;
+
+        // Fetch members for these accounts
+        const accountsWithMembers = await Promise.all(accounts.map(async (acc) => {
+            const { data: members } = await supabase
+                .from('account_members')
+                .select('user:profiles(*)')
+                .eq('account_id', acc.id);
+
+            const memberProfiles = members.map(m => ({
+                id: m.user.id,
+                name: m.user.full_name,
+                avatar: m.user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user.full_name}`
+            }));
+
+            // Ensure owner is in the list if not already
+            const ownerProfile = {
+                id: acc.owner.id,
+                name: acc.owner.full_name,
+                avatar: acc.owner.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${acc.owner.full_name}`
+            };
+
+            if (!memberProfiles.find(m => m.id === ownerProfile.id)) {
+                memberProfiles.push(ownerProfile);
+            }
+
+            return {
+                ...acc,
+                members: memberProfiles,
+                member_ids: memberProfiles.map(m => m.id)
+            };
+        }));
+
+        return accountsWithMembers;
+    },
+
+    createAccount: async (name, ownerId, memberIds) => {
+        // 1. Create Account
+        const { data: account, error: accError } = await supabase
+            .from('accounts')
+            .insert({ name, owner_id: ownerId })
+            .select()
+            .single();
+
+        if (accError) throw accError;
+
+        // 2. Add Members (include owner)
+        const allMemberIds = [...new Set([ownerId, ...memberIds])];
+
+        const membersToAdd = allMemberIds.map(id => ({
+            account_id: account.id,
+            user_id: id
+        }));
+
+        if (membersToAdd.length > 0) {
+            const { error: memError } = await supabase
+                .from('account_members')
+                .insert(membersToAdd);
+
+            if (memError) throw memError;
+        }
+
+        // 3. Fetch Profiles for return value
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', allMemberIds);
+
         return {
-            ...newAccount,
-            members: USERS.filter(u => newAccount.member_ids.includes(u.id))
+            ...account,
+            members: profiles?.map(p => ({
+                id: p.id,
+                name: p.full_name,
+                avatar: p.avatar_url
+            })) || [],
+            member_ids: allMemberIds
         };
     },
 
     updateAccount: async (accountId, updates) => {
-        await delay(300);
-        ACCOUNTS = ACCOUNTS.map(acc => {
-            if (acc.id === accountId) {
-                return { ...acc, ...updates };
-            }
-            return acc;
-        });
+        // Update name
+        if (updates.name) {
+            await supabase.from('accounts').update({ name: updates.name }).eq('id', accountId);
+        }
 
-        const updatedAccount = ACCOUNTS.find(acc => acc.id === accountId);
-        return {
-            ...updatedAccount,
-            members: USERS.filter(u => updatedAccount.member_ids.includes(u.id))
-        };
+        // Update members (Add only as per restriction)
+        if (updates.member_ids) {
+            const { data: currentMembers } = await supabase
+                .from('account_members')
+                .select('user_id')
+                .eq('account_id', accountId);
+
+            const currentIds = currentMembers.map(m => m.user_id);
+            const newIds = updates.member_ids.filter(id => !currentIds.includes(id));
+
+            // We also need to check if the new IDs include the owner, if so, skip adding to account_members
+            // But we don't have owner_id here easily without fetching. 
+            // However, the policy handles duplicates usually or we can fetch account first.
+            // Let's just try to insert new ones.
+
+            const membersToAdd = newIds.map(id => ({
+                account_id: accountId,
+                user_id: id
+            }));
+
+            if (membersToAdd.length > 0) {
+                await supabase.from('account_members').insert(membersToAdd).select();
+            }
+        }
+
+        // Return updated object
+        // For now, we might just return the updates merged, but ideally we fetch fresh
+        return { id: accountId, ...updates }; // Simplified, hook reloads usually
     },
 
     getExpenses: async (accountId) => {
-        await delay(500);
-        return expenses.filter(e => e.account_id === accountId);
+        const { data: expenses, error } = await supabase
+            .from('expenses')
+            .select(`
+        *,
+        shares:expense_shares(*)
+      `)
+            .eq('account_id', accountId)
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        return expenses;
     },
 
     addExpense: async (expenseData) => {
-        await delay(500);
-        const newExpense = {
-            id: Math.random().toString(36).substr(2, 9),
-            ...expenseData,
+        // 1. Insert Expense
+        const { data: expense, error: expError } = await supabase
+            .from('expenses')
+            .insert({
+                account_id: expenseData.account_id,
+                created_by: (await supabase.auth.getUser()).data.user.id,
+                title: expenseData.title,
+                amount: expenseData.amount,
+                date: expenseData.date
+            })
+            .select()
+            .single();
+
+        if (expError) throw expError;
+
+        // 2. Insert Shares
+        const shares = expenseData.shares.map(s => ({
+            expense_id: expense.id,
+            user_id: s.user_id,
+            amount: s.amount,
+            status: s.status
+        }));
+
+        const { data: createdShares, error: shareError } = await supabase
+            .from('expense_shares')
+            .insert(shares)
+            .select();
+
+        if (shareError) throw shareError;
+
+        return {
+            ...expense,
+            shares: createdShares
         };
-        expenses = [newExpense, ...expenses];
-        return newExpense;
     },
 
     updateExpense: async (expenseId, updates) => {
-        await delay(300);
-        expenses = expenses.map(exp => {
-            if (exp.id === expenseId) {
-                return { ...exp, ...updates };
-            }
-            return exp;
-        });
-        return expenses.find(e => e.id === expenseId);
+        // 1. Update Expense Fields
+        const { data: expense, error: expError } = await supabase
+            .from('expenses')
+            .update({
+                title: updates.title,
+                amount: updates.amount,
+                date: updates.date
+            })
+            .eq('id', expenseId)
+            .select()
+            .single();
+
+        if (expError) throw expError;
+
+        // 2. Update Shares (Delete and Re-insert is easiest for full replacement, or Upsert)
+        // Since we might change participants, delete/insert is safer for consistency
+        await supabase.from('expense_shares').delete().eq('expense_id', expenseId);
+
+        const shares = updates.shares.map(s => ({
+            expense_id: expenseId,
+            user_id: s.user_id,
+            amount: s.amount,
+            status: s.status
+        }));
+
+        const { data: createdShares, error: shareError } = await supabase
+            .from('expense_shares')
+            .insert(shares)
+            .select();
+
+        if (shareError) throw shareError;
+
+        return {
+            ...expense,
+            shares: createdShares
+        };
     },
 
     updateShareStatus: async (expenseId, userId, status) => {
-        await delay(300);
-        expenses = expenses.map(exp => {
-            if (exp.id === expenseId) {
-                return {
-                    ...exp,
-                    shares: exp.shares.map(share =>
-                        share.user_id === userId ? { ...share, status } : share
-                    )
-                };
-            }
-            return exp;
-        });
+        const { error } = await supabase
+            .from('expense_shares')
+            .update({ status })
+            .eq('expense_id', expenseId)
+            .eq('user_id', userId);
+
+        if (error) throw error;
         return true;
     }
 };

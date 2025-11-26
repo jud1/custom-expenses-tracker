@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, LogOut, ArrowLeft, Settings } from 'lucide-react';
 import { DashboardLayout } from './components/Layout/DashboardLayout';
 import { SummaryCard } from './components/Dashboard/SummaryCard';
@@ -9,14 +9,17 @@ import { AccountSelection } from './components/Accounts/AccountSelection';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { EditAccountModal } from './components/Accounts/EditAccountModal';
 import { useExpenses, useAccounts } from './hooks/useExpenses';
+import { supabase } from './lib/supabase';
 
 function App() {
+  const [session, setSession] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [activeAccount, setActiveAccount] = useState(null);
 
   const {
     expenses,
-    loading,
+    loading: expensesLoading,
     addExpense,
     updateExpense,
     toggleShareStatus,
@@ -29,9 +32,105 @@ function App() {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [expenseToEdit, setExpenseToEdit] = useState(null);
 
+  useEffect(() => {
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user);
+      } else {
+        setProfileLoading(false);
+      }
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth Event:", _event);
+      setSession(session);
+      if (session?.user) {
+        fetchProfile(session.user);
+      } else {
+        setCurrentUser(null);
+        setActiveAccount(null);
+        setProfileLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (user) => {
+    try {
+      setProfileLoading(true);
+      console.log("Fetching profile for:", user.id);
+
+      // 1. Try to get from DB
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (data) {
+        console.log("Profile found in DB:", data);
+        setCurrentUser({
+          id: data.id,
+          name: data.full_name || data.email,
+          avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}`
+        });
+      } else {
+        // 2. Fallback: Use Auth Metadata if DB profile is missing
+        // This happens if the trigger failed or hasn't run yet
+        console.warn("Profile not found in DB, using Auth Metadata");
+        const fallbackProfile = {
+          id: user.id,
+          name: user.user_metadata.full_name || user.email,
+          avatar: user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`
+        };
+        setCurrentUser(fallbackProfile);
+
+        // Optional: Attempt to create it client-side to fix the DB
+        try {
+          await supabase.from('profiles').insert({
+            id: user.id,
+            email: user.email,
+            full_name: fallbackProfile.name,
+            avatar_url: fallbackProfile.avatar
+          });
+          console.log("Created missing profile in DB");
+        } catch (insertError) {
+          console.error("Failed to auto-create profile:", insertError);
+        }
+      }
+    } catch (err) {
+      console.error("Profile fetch exception:", err);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setCurrentUser(null);
+    setActiveAccount(null);
+  };
+
+  // 0. Loading State (Global)
+  if (profileLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <p className="text-gray-500">Loading user profile...</p>
+      </div>
+    );
+  }
+
   // 1. Login Screen
-  if (!currentUser) {
-    return <LoginScreen onLogin={setCurrentUser} />;
+  if (!session || !currentUser) {
+    return <LoginScreen />;
   }
 
   // 2. Account Selection
@@ -40,13 +139,13 @@ function App() {
       <AccountSelection
         onSelect={setActiveAccount}
         currentUser={currentUser}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={handleLogout}
       />
     );
   }
 
   // 3. Dashboard
-  if (loading) {
+  if (expensesLoading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -66,7 +165,7 @@ function App() {
 
   const handleUpdateAccount = async (id, updates) => {
     const updated = await updateAccount(id, updates);
-    setActiveAccount(updated); // Update local state to reflect changes immediately
+    setActiveAccount(updated);
   };
 
   return (

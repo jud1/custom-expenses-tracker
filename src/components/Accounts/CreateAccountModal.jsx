@@ -33,11 +33,17 @@ export function CreateAccountModal({ isOpen, onClose, onCreate, currentUser }) {
         if (!name.trim()) return;
 
         setIsSubmitting(true);
-        await onCreate(name, selectedUserIds);
-        setIsSubmitting(false);
-        onClose();
-        setName('');
-        setSelectedUserIds([]);
+        try {
+            await onCreate(name, selectedUserIds);
+            onClose();
+            setName('');
+            setSelectedUserIds([]);
+        } catch (error) {
+            console.error("Failed to create account:", error);
+            alert("Failed to create account. See console for details.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
