@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutDashboard, CreditCard, Users, Settings, Bell, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { UserAvatar } from '../UserAvatar';
 
 const SidebarItem = ({ icon: Icon, label, active }) => (
     <div className={cn(
@@ -12,7 +13,7 @@ const SidebarItem = ({ icon: Icon, label, active }) => (
     </div>
 );
 
-export function DashboardLayout({ children }) {
+export function DashboardLayout({ children, currentUser }) {
     return (
         <div className="flex h-screen bg-background font-sans overflow-hidden">
             {/* Sidebar */}
@@ -54,10 +55,11 @@ export function DashboardLayout({ children }) {
                             <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-danger rounded-full border-2 border-white"></span>
                         </button>
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-purple-500 p-[2px]">
-                            <img
-                                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-                                alt="User"
-                                className="w-full h-full rounded-full bg-white"
+                            <UserAvatar
+                                avatar={currentUser?.avatar}
+                                name={currentUser?.name}
+                                size="md"
+                                className="w-full h-full border-2 border-white"
                             />
                         </div>
                     </div>

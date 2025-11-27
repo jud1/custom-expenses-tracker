@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Tag, Users } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { UserAvatar } from '../UserAvatar';
 
 export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expenseToEdit }) {
   const [title, setTitle] = useState('');
@@ -149,10 +150,11 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
                         : "border-gray-200 hover:bg-gray-50 text-gray-400 opacity-70"
                     )}
                   >
-                    <img
-                      src={user.avatar}
-                      className={cn("w-6 h-6 rounded-full transition-opacity", !isSelected && "opacity-50")}
-                      alt=""
+                    <UserAvatar
+                      avatar={user.avatar}
+                      name={user.name}
+                      size="sm"
+                      className={cn("w-6 h-6 text-xs transition-opacity", !isSelected && "opacity-50")}
                     />
                     {user.name}
                     {isSelected && <Users size={14} className="ml-1" />}

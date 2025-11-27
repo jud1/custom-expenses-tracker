@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Users, Check, Trash2, AlertTriangle } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { expenseService } from '../../services/expenseService';
+import { UserAvatar } from '../UserAvatar';
 
 export function EditAccountModal({ isOpen, onClose, onUpdate, account, currentUser }) {
     const [name, setName] = useState('');
@@ -85,7 +86,7 @@ export function EditAccountModal({ isOpen, onClose, onUpdate, account, currentUs
                             {account.members.map(member => (
                                 <div key={member.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
                                     <div className="flex items-center gap-3">
-                                        <img src={member.avatar} className="w-8 h-8 rounded-full" alt="" />
+                                        <UserAvatar avatar={member.avatar} name={member.name} size="sm" className="w-8 h-8" />
                                         <span className="font-medium text-gray-700">{member.name}</span>
                                         {member.id === account.owner_id && (
                                             <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Owner</span>
@@ -122,7 +123,7 @@ export function EditAccountModal({ isOpen, onClose, onUpdate, account, currentUs
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <img src={user.avatar} className="w-8 h-8 rounded-full" alt="" />
+                                            <UserAvatar avatar={user.avatar} name={user.name} size="sm" className="w-8 h-8" />
                                             <span className={cn("font-medium", isSelected ? "text-primary" : "text-gray-700")}>
                                                 {user.name}
                                             </span>

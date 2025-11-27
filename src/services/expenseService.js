@@ -241,5 +241,25 @@ export const expenseService = {
 
         if (error) throw error;
         return true;
+    },
+
+    deleteExpense: async (expenseId) => {
+        const { error } = await supabase
+            .from('expenses')
+            .delete()
+            .eq('id', expenseId);
+
+        if (error) throw error;
+        return true;
+    },
+
+    deleteExpenses: async (expenseIds) => {
+        const { error } = await supabase
+            .from('expenses')
+            .delete()
+            .in('id', expenseIds);
+
+        if (error) throw error;
+        return true;
     }
 };

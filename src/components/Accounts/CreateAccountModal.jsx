@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Users, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { expenseService } from '../../services/expenseService';
+import { UserAvatar } from '../UserAvatar';
 
 export function CreateAccountModal({ isOpen, onClose, onCreate, currentUser }) {
     const [name, setName] = useState('');
@@ -87,7 +88,7 @@ export function CreateAccountModal({ isOpen, onClose, onCreate, currentUser }) {
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <img src={user.avatar} className="w-8 h-8 rounded-full" alt="" />
+                                            <UserAvatar avatar={user.avatar} name={user.name} size="sm" className="w-8 h-8" />
                                             <span className={cn("font-medium", isSelected ? "text-primary" : "text-gray-700")}>
                                                 {user.name}
                                             </span>

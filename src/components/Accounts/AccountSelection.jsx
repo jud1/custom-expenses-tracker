@@ -3,7 +3,7 @@ import { Plus, ChevronRight, Users, LogOut } from 'lucide-react';
 import { CreateAccountModal } from './CreateAccountModal';
 import { useAccounts } from '../../hooks/useExpenses';
 
-export function AccountSelection({ onSelect, currentUser, onLogout }) {
+export function AccountSelection({ onSelect, currentUser, onLogout, onOpenProfile }) {
     const { accounts, loading, createAccount } = useAccounts(currentUser.id);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -21,7 +21,15 @@ export function AccountSelection({ onSelect, currentUser, onLogout }) {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Hello, {currentUser.name}</h1>
-                        <p className="text-gray-500">Select an account to continue</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <p className="text-gray-500">Select an account to continue</p>
+                            <button
+                                onClick={onOpenProfile}
+                                className="text-primary text-sm font-medium hover:underline"
+                            >
+                                Edit Profile
+                            </button>
+                        </div>
                     </div>
                     <button
                         onClick={onLogout}

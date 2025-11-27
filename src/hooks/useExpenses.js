@@ -57,7 +57,7 @@ export function useExpenses(account) {
             }
         };
         loadData();
-    }, [account]);
+    }, [account?.id]);
 
     const addExpense = async (expenseData) => {
         try {
@@ -107,6 +107,26 @@ export function useExpenses(account) {
         }
     };
 
+    const deleteExpense = async (expenseId) => {
+        try {
+            await expenseService.deleteExpense(expenseId);
+            setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+        } catch (err) {
+            console.error("Failed to delete expense", err);
+            throw err;
+        }
+    };
+
+    const deleteExpenses = async (expenseIds) => {
+        try {
+            await expenseService.deleteExpenses(expenseIds);
+            setExpenses(prev => prev.filter(exp => !expenseIds.includes(exp.id)));
+        } catch (err) {
+            console.error("Failed to delete expenses", err);
+            throw err;
+        }
+    };
+
     const balances = useMemo(() => {
         if (!account) return { totalPending: 0, userBalances: [] };
 
@@ -136,6 +156,8 @@ export function useExpenses(account) {
         addExpense,
         updateExpense,
         toggleShareStatus,
+        deleteExpense,
+        deleteExpenses,
         balances
     };
 }

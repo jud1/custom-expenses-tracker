@@ -1,6 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { UserAvatar } from '../UserAvatar';
 
 export function SummaryCard({ totalPending, userBalances }) {
     const formatCLP = (amount) => {
@@ -34,7 +35,7 @@ export function SummaryCard({ totalPending, userBalances }) {
                 <div key={user.id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                            <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full bg-gray-100" />
+                            <UserAvatar avatar={user.avatar} name={user.name} size="md" />
                             <div>
                                 <h3 className="font-bold text-gray-800">{user.name}</h3>
                                 <p className="text-xs text-gray-500">Member</p>
