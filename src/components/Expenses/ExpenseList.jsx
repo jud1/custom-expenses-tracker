@@ -155,7 +155,7 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                                                     ? 'border-green-500 bg-green-50 opacity-100'
                                                     : 'border-gray-200 bg-gray-50 opacity-60 hover:opacity-100 hover:border-gray-300'}
                     `}
-                                            title={`${share.status === 'PAID' ? 'Paid' : 'Pending'} - ${formatCLP(share.amount)}`}
+                                            title={`${share.user?.full_name || 'Unknown'}: ${share.status === 'PAID' ? 'Paid' : 'Pending'} - ${formatCLP(share.amount)}`}
                                         >
                                             <UserAvatar
                                                 avatar={share.user?.avatar_url || share.user?.avatar}
@@ -214,6 +214,7 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                                                         ? 'border-green-500 bg-green-50'
                                                         : 'border-gray-200 bg-gray-50 opacity-60'}
                       `}
+                                                title={`${share.user?.full_name || 'Unknown'}: ${share.status === 'PAID' ? 'Paid' : 'Pending'} - ${formatCLP(share.amount)}`}
                                             >
                                                 <UserAvatar
                                                     avatar={share.user?.avatar_url || share.user?.avatar}

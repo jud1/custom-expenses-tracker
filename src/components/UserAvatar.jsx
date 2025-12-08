@@ -22,6 +22,8 @@ export const AVATAR_ICONS = {
 };
 
 export function UserAvatar({ avatar, name, className, size = "md" }) {
+    const [imgError, setImgError] = React.useState(false);
+
     // Size classes
     const sizeClasses = {
         sm: "w-6 h-6 text-xs",
@@ -48,7 +50,7 @@ export function UserAvatar({ avatar, name, className, size = "md" }) {
             <div
                 title={name}
                 className={cn(
-                    "rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 cursor-help",
+                    "rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 cursor-default",
                     sizeClasses[size],
                     className
                 )}>
@@ -58,21 +60,18 @@ export function UserAvatar({ avatar, name, className, size = "md" }) {
     }
 
     // If it's a URL (or fallback to initials if URL is empty/invalid)
-    if (avatar) {
+    if (avatar && !imgError) {
         return (
             <img
                 src={avatar}
                 alt={name}
                 title={name}
                 className={cn(
-                    "rounded-full object-cover bg-gray-100 cursor-help",
+                    "rounded-full object-cover bg-gray-100 cursor-default",
                     sizeClasses[size],
                     className
                 )}
-                onError={(e) => {
-                    e.target.style.display = 'none';
-                    // You could potentially show a fallback here if needed
-                }}
+                onError={() => setImgError(true)}
             />
         );
     }
@@ -82,7 +81,7 @@ export function UserAvatar({ avatar, name, className, size = "md" }) {
         <div
             title={name}
             className={cn(
-                "rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium cursor-help",
+                "rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-medium cursor-default",
                 sizeClasses[size],
                 className
             )}>

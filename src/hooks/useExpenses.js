@@ -34,7 +34,43 @@ export function useAccounts(userId) {
         return updatedAccount;
     };
 
-    return { accounts, loading, createAccount, updateAccount };
+    const deleteAccount = async (accountId) => {
+        await expenseService.deleteAccount(accountId);
+        setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+    };
+
+    const respondToInvitation = async (accountId, accept) => {
+        await expenseService.respondToInvitation(accountId, accept);
+        if (accept) {
+            setAccounts(prev => prev.map(acc => {
+                if (acc.id === accountId) {
+                    return {
+                        ...acc,
+                        my_status: 'ACCEPTED',
+                        members: acc.members.map(m =>
+                            m.id === userId ? { ...m, status: 'ACCEPTED' } : m
+                        )
+                    };
+                }
+                return acc;
+            }));
+        } else {
+            setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+        }
+    };
+
+    const activeAccounts = accounts.filter(a => a.my_status === 'ACCEPTED' || a.owner_id === userId);
+    const pendingInvitations = accounts.filter(a => a.my_status === 'PENDING' && a.owner_id !== userId);
+
+    return {
+        accounts: activeAccounts,
+        invitations: pendingInvitations,
+        loading,
+        createAccount,
+        updateAccount,
+        deleteAccount,
+        respondToInvitation
+    };
 }
 
 export function useExpenses(account) {
@@ -135,16 +171,18 @@ export function useExpenses(account) {
             return acc + pendingShares.reduce((sum, s) => sum + s.amount, 0);
         }, 0);
 
-        const userBalances = account.members.map(user => {
-            const pendingAmount = expenses.reduce((acc, exp) => {
-                const userShare = exp.shares.find(s => s.user_id === user.id);
-                if (userShare && userShare.status === 'PENDING') {
-                    return acc + userShare.amount;
-                }
-                return acc;
-            }, 0);
-            return { ...user, pendingAmount };
-        });
+        const userBalances = account.members
+            .filter(user => user.status === 'ACCEPTED' || user.id === account.owner_id)
+            .map(user => {
+                const pendingAmount = expenses.reduce((acc, exp) => {
+                    const userShare = exp.shares.find(s => s.user_id === user.id);
+                    if (userShare && userShare.status === 'PENDING') {
+                        return acc + userShare.amount;
+                    }
+                    return acc;
+                }, 0);
+                return { ...user, pendingAmount };
+            });
 
         return { totalPending, userBalances };
     }, [expenses, account]);

@@ -31,7 +31,7 @@ function App() {
     balances
   } = useExpenses(activeAccount);
 
-  const { updateAccount } = useAccounts(currentUser?.id);
+  const { updateAccount, deleteAccount } = useAccounts(currentUser?.id);
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -242,6 +242,17 @@ function App() {
     setActiveAccount(updated);
   };
 
+  const handleDeleteAccount = async (accountId) => {
+    try {
+      await deleteAccount(accountId);
+      setIsAccountModalOpen(false);
+      setActiveAccount(null); // Go back to account selection
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      alert("Failed to delete account. Please try again.");
+    }
+  };
+
   const handleImportExpenses = async (importedExpenses) => {
     try {
       for (const expense of importedExpenses) {
@@ -360,6 +371,7 @@ function App() {
           isOpen={isAccountModalOpen}
           onClose={() => setIsAccountModalOpen(false)}
           onUpdate={handleUpdateAccount}
+          onDelete={handleDeleteAccount}
           account={activeAccount}
           currentUser={currentUser}
         />
