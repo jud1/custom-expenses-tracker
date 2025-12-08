@@ -4,7 +4,7 @@ import { CreateAccountModal } from './CreateAccountModal';
 import { useAccounts } from '../../hooks/useExpenses';
 
 export function AccountSelection({ onSelect, currentUser, onLogout, onOpenProfile }) {
-    const { accounts, loading, createAccount } = useAccounts(currentUser.id);
+    const { accounts, invitations, loading, createAccount, respondToInvitation } = useAccounts(currentUser.id);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     if (loading) {
@@ -41,44 +41,96 @@ export function AccountSelection({ onSelect, currentUser, onLogout, onOpenProfil
                 </div>
 
                 <div className="space-y-4">
-                    {accounts.map(account => (
-                        <button
-                            key={account.id}
-                            onClick={() => onSelect(account)}
-                            className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-200 hover:border-primary hover:shadow-md transition-all group flex items-center justify-between text-left"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-primary font-bold text-xl">
-                                    {account.name.charAt(0)}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 group-hover:text-primary transition-colors">{account.name}</h3>
-                                    <div className="flex items-center gap-1 text-sm text-gray-500">
-                                        <Users size={14} />
-                                        <span>{account.members.length} members</span>
+                    <div className="space-y-6">
+                        {/* Invitations Section */}
+                        {invitations && invitations.length > 0 && (
+                            <div className="space-y-3">
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-1">Invitations</h2>
+                                {invitations.map(account => (
+                                    <div
+                                        key={account.id}
+                                        className="w-full bg-white p-4 rounded-xl shadow-sm border border-indigo-100 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-primary font-bold text-xl">
+                                                {account.name.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h3 className="font-bold text-gray-900">{account.name}</h3>
+                                                <div className="flex items-center gap-1 text-sm text-gray-500">
+                                                    <Users size={14} />
+                                                    <span>Invited by {account.owner.full_name}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            <button
+                                                onClick={() => respondToInvitation(account.id, false)}
+                                                className="flex-1 py-2 bg-gray-50 text-gray-600 font-medium rounded-lg hover:bg-gray-100 transition-colors text-sm"
+                                            >
+                                                Reject
+                                            </button>
+                                            <button
+                                                onClick={() => respondToInvitation(account.id, true)}
+                                                className="flex-1 py-2 bg-primary text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors text-sm shadow-md shadow-primary/20"
+                                            >
+                                                Accept
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                ))}
                             </div>
-                            <ChevronRight className="text-gray-300 group-hover:text-primary transition-colors" />
+                        )}
+
+                        {/* Active Accounts Section */}
+                        <div className="space-y-3">
+                            {invitations?.length > 0 && (
+                                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider px-1">Your Accounts</h2>
+                            )}
+                            {accounts.map(account => (
+                                <button
+                                    key={account.id}
+                                    onClick={() => onSelect(account)}
+                                    className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-200 hover:border-primary hover:shadow-md transition-all group flex items-center justify-between text-left"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-primary font-bold text-xl">
+                                            {account.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-900 group-hover:text-primary transition-colors">{account.name}</h3>
+                                            <div className="flex items-center gap-1 text-sm text-gray-500">
+                                                <Users size={14} />
+                                                <span>{account.members.length} members</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ChevronRight className="text-gray-300 group-hover:text-primary transition-colors" />
+                                </button>
+                            ))}
+                            {accounts.length === 0 && (
+                                <p className="text-center text-gray-500 py-4">No active accounts found.</p>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="w-full p-4 rounded-2xl border-2 border-dashed border-gray-300 hover:border-primary hover:bg-indigo-50/50 text-gray-500 hover:text-primary transition-all flex items-center justify-center gap-2 font-medium"
+                        >
+                            <Plus size={20} />
+                            Create New Account
                         </button>
-                    ))}
-
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="w-full p-4 rounded-2xl border-2 border-dashed border-gray-300 hover:border-primary hover:bg-indigo-50/50 text-gray-500 hover:text-primary transition-all flex items-center justify-center gap-2 font-medium"
-                    >
-                        <Plus size={20} />
-                        Create New Account
-                    </button>
+                    </div>
                 </div>
-            </div>
 
-            <CreateAccountModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onCreate={createAccount}
-                currentUser={currentUser}
-            />
+                <CreateAccountModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    onCreate={createAccount}
+                    currentUser={currentUser}
+                />
+            </div>
         </div>
     );
 }

@@ -1,18 +1,21 @@
 import { supabase } from '../lib/supabase';
 
 export const expenseService = {
-    getUsers: async () => {
+    getProfileByEmail: async (email) => {
         const { data, error } = await supabase
             .from('profiles')
-            .select('id, full_name, avatar_url');
+            .select('id, full_name, avatar_url, email')
+            .eq('email', email)
+            .single();
 
-        if (error) throw error;
+        if (error) return null;
 
-        return data.map(u => ({
-            id: u.id,
-            name: u.full_name,
-            avatar: u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.full_name}`
-        }));
+        return {
+            id: data.id,
+            name: data.full_name,
+            avatar: data.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.full_name}`,
+            email: data.email
+        };
     },
 
     getAccounts: async (userId) => {
@@ -22,7 +25,7 @@ export const expenseService = {
             .select(`
         *,
         owner:profiles!owner_id(*),
-        account_members!inner(user_id)
+        account_members!inner(user_id, status)
       `)
             .eq('account_members.user_id', userId);
 
@@ -32,13 +35,14 @@ export const expenseService = {
         const accountsWithMembers = await Promise.all(accounts.map(async (acc) => {
             const { data: members } = await supabase
                 .from('account_members')
-                .select('user:profiles(*)')
+                .select('status, user:profiles(*)')
                 .eq('account_id', acc.id);
 
             const memberProfiles = members.map(m => ({
                 id: m.user.id,
                 name: m.user.full_name,
-                avatar: m.user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user.full_name}`
+                avatar: m.user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user.full_name}`,
+                status: m.status
             }));
 
             // Ensure owner is in the list if not already
@@ -52,10 +56,15 @@ export const expenseService = {
                 memberProfiles.push(ownerProfile);
             }
 
+            // Current user's status in this account
+            const myMemberRecord = acc.account_members.find(m => m.user_id === userId);
+            const myStatus = myMemberRecord ? myMemberRecord.status : 'PENDING';
+
             return {
                 ...acc,
                 members: memberProfiles,
-                member_ids: memberProfiles.map(m => m.id)
+                member_ids: memberProfiles.map(m => m.id),
+                my_status: myStatus
             };
         }));
 
@@ -77,7 +86,8 @@ export const expenseService = {
 
         const membersToAdd = allMemberIds.map(id => ({
             account_id: account.id,
-            user_id: id
+            user_id: id,
+            status: id === ownerId ? 'ACCEPTED' : 'PENDING'
         }));
 
         if (membersToAdd.length > 0) {
@@ -128,7 +138,8 @@ export const expenseService = {
 
             const membersToAdd = newIds.map(id => ({
                 account_id: accountId,
-                user_id: id
+                user_id: id,
+                status: 'PENDING'
             }));
 
             if (membersToAdd.length > 0) {
@@ -136,9 +147,90 @@ export const expenseService = {
             }
         }
 
-        // Return updated object
-        // For now, we might just return the updates merged, but ideally we fetch fresh
-        return { id: accountId, ...updates }; // Simplified, hook reloads usually
+        // Return updated object with full details
+        return await expenseService.getAccountById(accountId);
+    },
+
+    getAccountById: async (accountId) => {
+        const { data: userId } = await supabase.auth.getUser().then(r => r.data.user ? { data: r.data.user.id } : { data: null });
+
+        const { data: account, error } = await supabase
+            .from('accounts')
+            .select(`
+            *,
+            owner:profiles!owner_id(*),
+            account_members!inner(user_id, status)
+        `)
+            .eq('id', accountId)
+            .single();
+
+        if (error) throw error;
+
+        // Fetch members details
+        const { data: members } = await supabase
+            .from('account_members')
+            .select('status, user:profiles(*)')
+            .eq('account_id', accountId);
+
+        const memberProfiles = members.map(m => ({
+            id: m.user.id,
+            name: m.user.full_name,
+            avatar: m.user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user.full_name}`,
+            status: m.status
+        }));
+
+        // Ensure owner is in the list
+        const ownerProfile = {
+            id: account.owner.id,
+            name: account.owner.full_name,
+            avatar: account.owner.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${account.owner.full_name}`,
+            status: 'ACCEPTED' // Owner is always accepted
+        };
+
+        if (!memberProfiles.find(m => m.id === ownerProfile.id)) {
+            memberProfiles.push(ownerProfile);
+        }
+
+        const myMemberRecord = account.account_members.find(m => m.user_id === userId);
+        const myStatus = myMemberRecord ? myMemberRecord.status : (account.owner_id === userId ? 'ACCEPTED' : 'PENDING');
+
+        return {
+            ...account,
+            members: memberProfiles,
+            member_ids: memberProfiles.map(m => m.id),
+            my_status: myStatus
+        };
+    },
+
+    respondToInvitation: async (accountId, accept) => {
+        const userId = (await supabase.auth.getUser()).data.user.id;
+
+        if (accept) {
+            const { error } = await supabase
+                .from('account_members')
+                .update({ status: 'ACCEPTED' })
+                .eq('account_id', accountId)
+                .eq('user_id', userId);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from('account_members')
+                .delete()
+                .eq('account_id', accountId)
+                .eq('user_id', userId);
+            if (error) throw error;
+        }
+        return true;
+    },
+
+    deleteAccount: async (accountId) => {
+        const { error } = await supabase
+            .from('accounts')
+            .delete()
+            .eq('id', accountId);
+
+        if (error) throw error;
+        return true;
     },
 
     getExpenses: async (accountId) => {
@@ -146,7 +238,10 @@ export const expenseService = {
             .from('expenses')
             .select(`
         *,
-        shares:expense_shares(*)
+        shares:expense_shares(
+            *,
+            user:profiles(*)
+        )
       `)
             .eq('account_id', accountId)
             .order('date', { ascending: false });

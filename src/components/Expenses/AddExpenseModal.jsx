@@ -10,6 +10,9 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
   const [participants, setParticipants] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Only allow ACCEPTED members to be involved in expenses
+  const eligibleUsers = users.filter(u => u.status === 'ACCEPTED');
+
   useEffect(() => {
     if (isOpen) {
       if (expenseToEdit) {
@@ -22,7 +25,8 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
         setTitle('');
         setAmount('');
         setDate(new Date().toISOString().split('T')[0]);
-        setParticipants(users.map(u => u.id));
+        // Default select all eligible users
+        setParticipants(eligibleUsers.map(u => u.id));
       }
     }
   }, [isOpen, expenseToEdit, users]);
@@ -135,8 +139,8 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Participants</label>
-            <div className="flex gap-3">
-              {users.map(user => {
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {eligibleUsers.map(user => {
                 const isSelected = participants.includes(user.id);
                 return (
                   <button
@@ -144,10 +148,10 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
                     type="button"
                     onClick={() => toggleParticipant(user.id)}
                     className={cn(
-                      "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all",
+                      "flex-shrink-0 min-w-[100px] flex items-center justify-center gap-2 py-2 px-3 rounded-xl border transition-all",
                       isSelected
                         ? "border-primary bg-primary/5 text-primary font-medium ring-1 ring-primary"
-                        : "border-gray-200 hover:bg-gray-50 text-gray-400 opacity-70"
+                        : "border-gray-200 hover:bg-gray-50 text-gray-400"
                     )}
                   >
                     <UserAvatar
@@ -156,12 +160,15 @@ export function AddExpenseModal({ isOpen, onClose, onAdd, onUpdate, users, expen
                       size="sm"
                       className={cn("w-6 h-6 text-xs transition-opacity", !isSelected && "opacity-50")}
                     />
-                    {user.name}
-                    {isSelected && <Users size={14} className="ml-1" />}
+                    <span className="truncate max-w-[80px] text-sm">{user.name.split(' ')[0]}</span>
+                    {isSelected && <Users size={14} className="ml-1 flex-shrink-0" />}
                   </button>
                 );
               })}
             </div>
+            {eligibleUsers.length === 0 && (
+              <p className="text-sm text-gray-400 italic">No eligible members (accepted) found.</p>
+            )}
             <p className="text-xs text-gray-400 mt-2 text-center">
               Split: ${participants.length > 0 ? Math.round((parseFloat(amount) || 0) / participants.length).toLocaleString('es-CL') : 0} each
             </p>
