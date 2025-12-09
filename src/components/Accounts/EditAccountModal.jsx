@@ -15,13 +15,19 @@ export function EditAccountModal({ isOpen, onClose, onUpdate, onDelete, account,
 
     useEffect(() => {
         if (isOpen && account) {
+            console.log("EditAccountModal Open:", {
+                accountId: account.id,
+                ownerId: account.owner_id,
+                currentUserId: currentUser?.id,
+                isOwner: account.owner_id === currentUser?.id
+            });
             setName(account.name);
             setInvitedUsers([]);
             setInviteEmail('');
             setSearchMessage(null);
             setShowDeleteConfirm(false);
         }
-    }, [isOpen, account]);
+    }, [isOpen, account, currentUser]);
 
     if (!isOpen || !account) return null;
 

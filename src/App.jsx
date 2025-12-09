@@ -28,6 +28,8 @@ function App() {
     toggleShareStatus,
     deleteExpense,
     deleteExpenses,
+    archiveExpense,
+    archiveExpenses,
     balances
   } = useExpenses(activeAccount);
 
@@ -355,6 +357,8 @@ function App() {
             onEdit={handleEditExpense}
             onDelete={deleteExpense}
             onDeleteMultiple={deleteExpenses}
+            onArchive={archiveExpense}
+            onArchiveMultiple={archiveExpenses}
           />
         </section>
 
