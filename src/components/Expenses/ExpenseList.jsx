@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, User, Edit2, Trash2 } from 'lucide-react';
+import { Calendar, User, Edit2, Trash2, Archive } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { cn } from '../../lib/utils';
 import { ConfirmationModal } from '../UI/ConfirmationModal';
 
-export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDeleteMultiple }) {
+export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDeleteMultiple, onArchive, onArchiveMultiple }) {
     const [selectedExpenses, setSelectedExpenses] = useState([]);
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
-        type: null, // 'single' | 'multiple'
+        type: null, // 'single' | 'multiple' | 'archive'
         id: null,
         count: 0
     });
@@ -45,6 +45,24 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
         });
     };
 
+    const handleArchiveSelectedClick = () => {
+        setConfirmModal({
+            isOpen: true,
+            type: 'archive-multiple',
+            id: null,
+            count: selectedExpenses.length
+        });
+    };
+
+    const handleArchiveClick = (id) => {
+        setConfirmModal({
+            isOpen: true,
+            type: 'archive',
+            id: id,
+            count: 1
+        });
+    };
+
     const handleDeleteSelectedClick = () => {
         setConfirmModal({
             isOpen: true,
@@ -59,6 +77,11 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
             onDelete(confirmModal.id);
         } else if (confirmModal.type === 'multiple') {
             onDeleteMultiple(selectedExpenses);
+            setSelectedExpenses([]);
+        } else if (confirmModal.type === 'archive' && confirmModal.id) {
+            onArchive(confirmModal.id);
+        } else if (confirmModal.type === 'archive-multiple') {
+            onArchiveMultiple(selectedExpenses);
             setSelectedExpenses([]);
         }
         setConfirmModal({ isOpen: false, type: null, id: null, count: 0 });
@@ -85,6 +108,13 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                         <span className="text-red-700 font-medium text-sm pl-2">
                             {selectedExpenses.length} selected
                         </span>
+                        <button
+                            onClick={handleArchiveSelectedClick}
+                            className="flex items-center gap-2 bg-white text-amber-600 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm hover:bg-amber-50 border border-amber-100 transition-colors"
+                        >
+                            <Archive size={14} />
+                            Archive Selected
+                        </button>
                         <button
                             onClick={handleDeleteSelectedClick}
                             className="flex items-center gap-2 bg-white text-red-600 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm hover:bg-red-50 border border-red-100 transition-colors"
@@ -179,6 +209,13 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                                     >
                                         <Trash2 size={16} />
                                     </button>
+                                    <button
+                                        onClick={() => handleArchiveClick(expense.id)}
+                                        className="p-1.5 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                                        title="Archive"
+                                    >
+                                        <Archive size={16} />
+                                    </button>
                                 </div>
                             </div>
 
@@ -237,6 +274,12 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                                         >
                                             <Trash2 size={18} />
                                         </button>
+                                        <button
+                                            onClick={() => handleArchiveClick(expense.id)}
+                                            className="p-2 text-gray-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                                        >
+                                            <Archive size={18} />
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -251,9 +294,13 @@ export function ExpenseList({ expenses, onEdit, onToggleShare, onDelete, onDelet
                 title={confirmModal.type === 'single' ? 'Delete Expense' : 'Delete Expenses'}
                 message={confirmModal.type === 'single'
                     ? 'Are you sure you want to delete this expense? This action cannot be undone.'
-                    : `Are you sure you want to delete ${confirmModal.count} expenses? This action cannot be undone.`}
-                confirmText="Delete"
-                isDestructive={true}
+                    : confirmModal.type === 'archive'
+                        ? 'Are you sure you want to archive this expense?'
+                        : confirmModal.type === 'archive-multiple'
+                            ? `Are you sure you want to archive ${confirmModal.count} expenses?`
+                            : `Are you sure you want to delete ${confirmModal.count} expenses? This action cannot be undone.`}
+                confirmText={confirmModal.type === 'archive' || confirmModal.type === 'archive-multiple' ? 'Archive' : 'Delete'}
+                isDestructive={confirmModal.type !== 'archive' && confirmModal.type !== 'archive-multiple'}
             />
         </>
     );

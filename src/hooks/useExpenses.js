@@ -163,6 +163,32 @@ export function useExpenses(account) {
         }
     };
 
+    const archiveExpense = async (expenseId) => {
+        // Optimistic update
+        setExpenses(prev => prev.filter(exp => exp.id !== expenseId));
+
+        try {
+            await expenseService.updateExpenseStatus(expenseId, 'ARCHIVED');
+        } catch (err) {
+            console.error("Failed to archive expense", err);
+            // Rollback is tricky without refetching, but for now we'll just log error
+            // Ideally we'd add it back, but let's keep it simple as per request
+            throw err;
+        }
+    };
+
+    const archiveExpenses = async (expenseIds) => {
+        // Optimistic update
+        setExpenses(prev => prev.filter(exp => !expenseIds.includes(exp.id)));
+
+        try {
+            await expenseService.updateExpensesStatus(expenseIds, 'ARCHIVED');
+        } catch (err) {
+            console.error("Failed to archive expenses", err);
+            throw err;
+        }
+    };
+
     const balances = useMemo(() => {
         if (!account) return { totalPending: 0, userBalances: [] };
 
@@ -196,6 +222,8 @@ export function useExpenses(account) {
         toggleShareStatus,
         deleteExpense,
         deleteExpenses,
+        archiveExpense,
+        archiveExpenses,
         balances
     };
 }

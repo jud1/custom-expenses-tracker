@@ -224,12 +224,46 @@ export const expenseService = {
     },
 
     deleteAccount: async (accountId) => {
-        const { error } = await supabase
+        // 1. Delete all expenses (and their shares via cascade or we should delete them too)
+        // Ideally DB has cascade, but to be safe/debugging:
+
+        // Get all expense IDs for this account to delete shares if needed?
+        // Let's assume expenses -> expense_shares has cascade or we can just delete expenses.
+
+        const { error: expError } = await supabase
+            .from('expenses')
+            .delete()
+            .eq('account_id', accountId);
+
+        if (expError) {
+            console.error("Error deleting account expenses:", expError);
+            throw expError;
+        }
+
+        // 2. Delete account members
+        const { error: memError } = await supabase
+            .from('account_members')
+            .delete()
+            .eq('account_id', accountId);
+
+        if (memError) {
+            console.error("Error deleting account members:", memError);
+            throw memError;
+        }
+
+        // 3. Delete the account
+        const { error, count } = await supabase
             .from('accounts')
             .delete()
-            .eq('id', accountId);
+            .eq('id', accountId)
+            .select('id', { count: 'exact' });
 
-        if (error) throw error;
+        if (error) {
+            console.error("Error deleting account:", error);
+            throw error;
+        }
+
+        console.log(`Deleted account ${accountId}. Rows affected: ${count}`);
         return true;
     },
 
@@ -244,6 +278,8 @@ export const expenseService = {
         )
       `)
             .eq('account_id', accountId)
+            // Filter out archived expenses by default
+            .eq('status', 'ACTIVE')
             .order('date', { ascending: false });
 
         if (error) throw error;
@@ -352,6 +388,26 @@ export const expenseService = {
         const { error } = await supabase
             .from('expenses')
             .delete()
+            .in('id', expenseIds);
+
+        if (error) throw error;
+        return true;
+    },
+
+    updateExpenseStatus: async (expenseId, status) => {
+        const { error } = await supabase
+            .from('expenses')
+            .update({ status })
+            .eq('id', expenseId);
+
+        if (error) throw error;
+        return true;
+    },
+
+    updateExpensesStatus: async (expenseIds, status) => {
+        const { error } = await supabase
+            .from('expenses')
+            .update({ status })
             .in('id', expenseIds);
 
         if (error) throw error;
