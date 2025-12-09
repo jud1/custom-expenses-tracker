@@ -99,20 +99,7 @@ export const expenseService = {
         }
 
         // 3. Fetch Profiles for return value
-        const { data: profiles } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('id', allMemberIds);
-
-        return {
-            ...account,
-            members: profiles?.map(p => ({
-                id: p.id,
-                name: p.full_name,
-                avatar: p.avatar_url
-            })) || [],
-            member_ids: allMemberIds
-        };
+        return await expenseService.getAccountById(account.id);
     },
 
     updateAccount: async (accountId, updates) => {
