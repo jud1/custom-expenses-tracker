@@ -4,7 +4,7 @@
 
 -- 2.1. TIPOS ENUM
 CREATE TYPE public.member_status AS ENUM ('PENDING', 'ACCEPTED', 'ADMIN');
-CREATE TYPE public.expense_status AS ENUM ('DRAFT', 'ACTIVE', 'ARCHIVED');
+CREATE TYPE public.expense_status AS ENUM ('ACTIVE', 'ARCHIVED');
 CREATE TYPE public.share_status AS ENUM ('PENDING', 'ACCEPTED', 'PAID');
 
 
@@ -43,7 +43,7 @@ CREATE TABLE public.expenses (
   title text,
   amount numeric NOT NULL,
   date date DEFAULT now() NOT NULL,
-  status public.expense_status DEFAULT 'DRAFT' NOT NULL
+  status public.expense_status DEFAULT 'ACTIVE' NOT NULL
 );
 ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
 

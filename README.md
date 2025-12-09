@@ -40,7 +40,7 @@ The comprehensive Postgres schema handles users, groups, and complex expense rel
 
 1.  **`profiles`**
     *   Stores user details linked to Supabase Auth.
-    *   `id` (PK, references auth.users), `email`, `full_name`, `avatar_url`.
+    *   `id` (PK, references auth.users), `email`, `full_name`, `avatar_url`, `updated_at`.
 
 2.  **`accounts`**
     *   Represents a shared ledger or group.
@@ -48,15 +48,22 @@ The comprehensive Postgres schema handles users, groups, and complex expense rel
 
 3.  **`account_members`**
     *   Links users to accounts (Many-to-Many).
-    *   `id` (PK), `account_id`, `user_id`, `joined_at`.
+    *   **PK:** Composite of `(account_id, user_id)`.
+    *   `account_id`, `user_id`, `joined_at`, `status` ('PENDING'/'ACCEPTED'/'ADMIN').
 
 4.  **`expenses`**
     *   The main expense record.
-    *   `id` (PK), `account_id`, `created_by`, `title`, `amount`, `date`.
+    *   `id` (PK), `account_id`, `created_by`, `title`, `amount`, `date`, `status` ('ACTIVE'/'ARCHIVED').
 
 5.  **`expense_shares`**
     *   Tracks individual debt/share for each expense.
-    *   `id` (PK), `expense_id`, `user_id`, `amount`, `status` ('PENDING'/'PAID').
+    *   `id` (PK), `expense_id`, `user_id`, `amount`, `status` ('PENDING'/'ACCEPTED'/'PAID').
+
+### Key Database Functions & Triggers
+
+*   **`handle_new_user()`**: A trigger that automatically creates a `public.profiles` entry whenever a new user signs up via Supabase Auth.
+*   **`is_member_active()` / `is_member_or_pending()`**: Security Helper functions used in RLS policies to prevent infinite recursion when checking user permissions against the `account_members` table.
+*   **`check_expense_archive_status()`**: A business logic trigger that prevents archiving an expense if any of its shares are still in 'PENDING' status.
 
 ### Security (RLS)
 Row Level Security is enabled on all tables to ensure users can only access data for accounts they belong to.
@@ -82,7 +89,12 @@ Row Level Security is enabled on all tables to ensure users can only access data
     ```
 
 4.  **Database Setup**
-    Run the SQL scripts located in `bbdd-commands/supabase_schema.sql` in your Supabase SQL Editor to set up the tables and security policies.
+    Navigate to the `sql` folder. It contains two scripts to help you set up and reset your database:
+
+    *   `sql/resetall.sql`: **WARNING** Use this script to completely wipe the existing database schema (tables, functions, types). Useful for a fresh start.
+    *   `sql/create.sql`: Run this script to generate the entire database structure, including tables, Row Level Security (RLS) policies, and necessary functions.
+
+    Run these scripts in your Supabase SQL Editor. If you are starting fresh, run `resetall.sql` first, followed by `create.sql`.
 
 5.  **Run Development Server**
     ```bash
